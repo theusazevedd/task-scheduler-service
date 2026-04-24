@@ -9,6 +9,9 @@ import com.azevedo.task_scheduler_service.infrastructure.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class TarefasService {
@@ -25,7 +28,17 @@ public class TarefasService {
         TarefasEntity entity = tarefaConverter.paraTarefaEntity(dto);
         return tarefaConverter.paraTarefaDTO(tarefasRepository.save(entity));
 
+    }
 
+    public List<TarefasDTO> buscaTarefasAgendasPorPeriodo(Instant dataInicial, Instant dataFinal) {
+        return tarefaConverter.paraListaTarefasDTO(
+                tarefasRepository.findByDataEventoBetween(dataInicial, dataFinal));
+    }
+
+    public List<TarefasDTO> buscaTarefasPorEmail(String token) {
+        String email = jwtUtil.extractUsername(token.substring(7));
+        List<TarefasEntity> listaTarefas = tarefasRepository.findByEmailUsuario(email);
+        return tarefaConverter.paraListaTarefasDTO(listaTarefas);
     }
 
 }
