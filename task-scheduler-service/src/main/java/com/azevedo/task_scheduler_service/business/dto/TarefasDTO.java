@@ -19,5 +19,5 @@ public class TarefasDTO {
     private Instant dataEvento;
     private String emailUsuario;
     private Instant dataAlteracao;
-    private StatusNotificacaoEnum statusNotificacaoEnum;
+    private StatusNotificacaoEnum status;
 }
