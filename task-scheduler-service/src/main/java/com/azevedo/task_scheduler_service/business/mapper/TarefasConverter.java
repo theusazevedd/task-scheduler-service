@@ -1,6 +1,7 @@
 package com.azevedo.task_scheduler_service.business.mapper;
 
-import com.azevedo.task_scheduler_service.business.dto.TarefasDTO;
+import com.azevedo.task_scheduler_service.business.dto.TarefaRequestDTO;
+import com.azevedo.task_scheduler_service.business.dto.TarefaResponseDTO;
 import com.azevedo.task_scheduler_service.infrastructure.entity.TarefasEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -10,12 +11,14 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface TarefasConverter {
 
-    TarefasEntity paraTarefaEntity(TarefasDTO dto);
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "dataCriacao", ignore = true)
+    @Mapping(target = "emailUsuario", ignore = true)
+    @Mapping(target = "dataAlteracao", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    TarefasEntity paraTarefaEntity(TarefaRequestDTO dto);
 
-    TarefasDTO paraTarefaDTO(TarefasEntity entity);
+    TarefaResponseDTO paraTarefaResponseDTO(TarefasEntity entity);
 
-    List<TarefasEntity> paraListaTarefasEntity(List<TarefasDTO> dtos);
-
-    List<TarefasDTO> paraListaTarefasDTO(List<TarefasEntity> entities);
-
+    List<TarefaResponseDTO> paraListaTarefasResponseDTO(List<TarefasEntity> entities);
 }
