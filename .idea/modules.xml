@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.azevedo.task-scheduler-service.main.iml" filepath="$PROJECT_DIR$/.idea/modules/com.azevedo.task-scheduler-service.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/com.azevedo.task-scheduler-service.test.iml" filepath="$PROJECT_DIR$/.idea/modules/com.azevedo.task-scheduler-service.test.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/task-scheduler-service.iml" filepath="$PROJECT_DIR$/.idea/task-scheduler-service.iml" />
     </modules>
   </component>
