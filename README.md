@@ -8,6 +8,7 @@ Microservico responsavel por cadastro, consulta e atualizacao de tarefas agendad
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F)](https://spring.io/projects/spring-boot)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248)](https://www.mongodb.com/)
 [![Gradle](https://img.shields.io/badge/Gradle-Build%20Tool-02303A)](https://gradle.org/)
+[![Docker](https://img.shields.io/badge/Docker-Container-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
 ---
 
@@ -19,6 +20,7 @@ Microservico responsavel por cadastro, consulta e atualizacao de tarefas agendad
 * [Tecnologias](#tecnologias)
 * [Decisoes Tecnicas](#decisoes-tecnicas)
 * [Como Executar Localmente](#como-executar-localmente)
+* [Docker](#docker)
 * [Configuracao](#configuracao)
 * [Autenticacao e Seguranca](#autenticacao-e-seguranca)
 * [API](#api)
@@ -98,6 +100,7 @@ Fluxo simplificado:
 * **JWT stateless**: autenticacao sem sessao em servidor, adequada para arquitetura de microservicos.
 * **OpenFeign**: comunicacao declarativa com o `user-service`, reduzindo boilerplate HTTP.
 * **MapStruct**: mapeamento entre DTOs e entidades com menor codigo manual e melhor manutencao.
+* **Docker multi-stage**: compilacao e empacotamento dentro da imagem (JDK + Gradle), runtime com JRE; perfil Spring `docker` isola URLs de integracao em rede de conteiner (`user-service`, `mongo`) do ambiente local.
 * **Seguranca sem exposicao de senha**: o `task-scheduler-service` identifica o usuario pelo token JWT; no contexto de `UserDetails`, a senha e tecnica (`{noop}not-used`) e nao depende de senha real no payload do `user-service`.
 
 ---
@@ -128,19 +131,93 @@ Garanta os servicos locais:
 
 ### 3) Subir aplicacao
 
+Na pasta do modulo Gradle (`task-scheduler-service/task-scheduler-service`):
+
 ```bash
 ./gradlew bootRun
 ```
 
 ---
 
+## Docker
+
+A imagem e construida com **multi-stage build**: estapa de compilacao com JDK e Gradle Wrapper (sem depender de JAR gerado na maquina host) e imagem final com **JRE** apenas, reduzindo tamanho e superficie de ataque. O perfil Spring `docker` e ativado na imagem (`SPRING_PROFILES_ACTIVE=docker`), aplicando URLs adequadas a redes de conteiner (hostnames de servico, nao `localhost` entre microservicos).
+
+### Pre-requisitos
+
+* Docker Engine 24+ ou Docker Desktop
+* Build executado a partir da **raiz do repositorio** (diretorio que contem o `Dockerfile`, pai da pasta `task-scheduler-service/` do codigo)
+
+### Construir a imagem
+
+```bash
+docker build -t task-scheduler-service:latest .
+```
+
+O contexto precisa ser a raiz do repo porque o `Dockerfile` copia o modulo `task-scheduler-service/` para a etapa de build.
+
+### Executar o conteiner
+
+Exemplo minimo expondo a API na porta 8081. Ajuste `USUARIO_URL` e `MONGODB_URI` conforme a rede onde o conteiner roda (por exemplo, mesma rede Docker Compose que `user-service` e MongoDB):
+
+```bash
+docker run --rm -p 8081:8081 \
+  --network <nome-da-rede-compose> \
+  -e USUARIO_URL=http://user-service:8080 \
+  -e MONGODB_URI=mongodb://mongo:27017/db_agendador \
+  task-scheduler-service:latest
+```
+
+Hostnames como `user-service` e `mongo` so resolvem se o conteiner estiver na **mesma rede Docker** que esses servicos (por exemplo a rede gerada pelo Compose, repassada em `--network`).
+
+Para testar a partir do host com outros servicos ainda em `localhost` na maquina, use um hostname acessivel de dentro do conteiner (por exemplo `host.docker.internal` no Docker Desktop) nas variaveis acima.
+
+### Variaveis de ambiente
+
+| Variavel | Descricao | Padrao (perfil `docker`) |
+|----------|-----------|--------------------------|
+| `SPRING_PROFILES_ACTIVE` | Perfis Spring; na imagem definido como `docker` | `docker` (imagem) |
+| `USUARIO_URL` | URL base do `user-service` (OpenFeign) | `http://user-service:8080` |
+| `MONGODB_URI` | URI de conexao MongoDB | `mongodb://mongo:27017/db_agendador` |
+
+Arquivos de configuracao:
+
+* `task-scheduler-service/src/main/resources/application.properties` — desenvolvimento local (defaults em `localhost` via placeholders).
+* `task-scheduler-service/src/main/resources/application-docker.properties` — valores alinhados a nomes tipicos de servicos no Compose; sempre sobrescrevivel pelas variaveis acima.
+
+### Docker Compose
+
+Na stack Compose, coloque este servico na **mesma rede** que `user-service` e MongoDB. Se os nomes dos servicos forem diferentes de `user-service` e `mongo`, defina `USUARIO_URL` e `MONGODB_URI` no bloco `environment` do servico. Evite `http://localhost:8080` para o usuario dentro do conteiner: `localhost` e a propria interface do conteiner, nao outro servico da rede.
+
+Exemplo ilustrativo (nomes de imagem e dependencias devem refletir o seu repositorio):
+
+```yaml
+services:
+  task-scheduler-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      USUARIO_URL: http://user-service:8080
+      MONGODB_URI: mongodb://mongo:27017/db_agendador
+    depends_on:
+      - mongo
+      - user-service
+```
+
+---
+
 ## Configuracao
 
-`src/main/resources/application.properties`:
+Propriedades principais (ver `task-scheduler-service/src/main/resources/application.properties` e `application-docker.properties`):
 
-* `spring.data.mongodb.uri=mongodb://localhost:27017/db_agendador`
-* `usuario.url=http://localhost:8080`
-* `server.port=8081`
+| Propriedade | Origem | Comportamento |
+|-------------|--------|-----------------|
+| `spring.data.mongodb.uri` | `MONGODB_URI` | Padrao local: `mongodb://localhost:27017/db_agendador`; perfil `docker`: `mongodb://mongo:27017/db_agendador` |
+| `usuario.url` | `USUARIO_URL` | Padrao local: `http://localhost:8080`; perfil `docker`: `http://user-service:8080` |
+| `server.port` | — | `8081` |
 
 ### Observacoes para producao
 
